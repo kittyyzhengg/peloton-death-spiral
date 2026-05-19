@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Peloton Subscriber Retention</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #fff;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .header h1 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+  .header p {
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: #555;
+  }
+
+  /* ── SPIRAL WRAPPER ── */
+  .spiral-wrap {
+    position: relative;
+    width: 560px;
+    height: 560px;
+  }
+
+  canvas#c {
+    display: block;
+  }
+
+  /* ── CENTER OVERLAY ── */
+  .center-stat {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .center-stat .val {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+    line-height: 1;
+  }
+  .center-stat .lbl {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #555;
+    margin-top: 5px;
+  }
+
+  /* ── TOOLTIP ── */
+  .tip {
+    position: fixed;
+    background: rgba(12,12,12,0.97);
+    border: 1px solid #222;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 11px;
+    pointer-events: none;
+    display: none;
+    z-index: 99;
+    min-width: 180px;
+    line-height: 1.7;
+  }
+  .tip .t-quarter { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .tip .t-row { display: flex; justify-content: space-between; gap: 20px; }
+  .tip .t-key { color: #555; }
+  .tip .t-v { color: #fff; font-weight: 600; }
+  .tip .t-churn { color: #ff4d4d; }
+  .tip .t-ret   { color: #4de8c2; }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    gap: 28px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: #555;
+  }
+  .leg-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── BOTTOM STATS ── */
+  .stats-row {
+    display: flex;
+    gap: 20px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stat-box {
+    text-align: center;
+    min-width: 110px;
+  }
+  .stat-box .sv {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+  .stat-box .sk {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #444;
+    margin-top: 3px;
+  }
+  .stat-box .sd {
+    font-size: 10px;
+    margin-top: 3px;
+  }
+  .sd.neg { color: #ff4d4d; }
+  .sd.pos { color: #4de8c2; }
+
+  /* ── SOURCE ── */
+  .source {
+    margin-top: 28px;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: #333;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Peloton — Subscriber Retention</h1>
+  <p>Connected Fitness Paid Subscriptions · Q1 FY2020 – Q2 FY2026 · Source: Peloton 10-K / SEC</p>
+</div>
+
+<div class="spiral-wrap">
+  <canvas id="c" width="560" height="560"></canvas>
+  <div class="center-stat">
+    <div class="val" id="cVal">3.11M</div>
+    <div class="lbl" id="cLbl">Peak · Mar 2023</div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#4de8c2"></div>Growth</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#f5c842"></div>Plateau</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#ff4d4d"></div>Decline</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#a78bfa"></div>Stabilizing</div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-box">
+    <div class="sv">3.11M</div>
+    <div class="sk">Peak Subs</div>
+    <div class="sd neg">Mar 2023</div>
+  </div>
+  <div class="stat-box">
+    <div class="sv">2.66M</div>
+    <div class="sk">Dec 2025</div>
+    <div class="sd neg">▼ 14.5% from peak</div>
+  </div>
+  <div class="stat-box">
+    <div class="sv">1.2%</div>
+    <div class="sk">Monthly Churn</div>
+    <div class="sd pos">Stabilized FY2026</div>
+  </div>
+  <div class="stat-box">
+    <div class="sv">~85%</div>
+    <div class="sk">Annual Retention</div>
+    <div class="sd pos">Implied FY2024</div>
+  </div>
+</div>
+
+<div class="source">
+  Data: Peloton 10-K filings FY2020–FY2025 &amp; SEC quarterly reports. Churn = Avg Net Monthly Paid CF Subscription Churn.
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const data = [
+  { q:'Q1 FY2020', date:'Sep 2019', subs:562,  churn:0.65, phase:'growth' },
+  { q:'Q2 FY2020', date:'Dec 2019', subs:712,  churn:0.60, phase:'growth' },
+  { q:'Q3 FY2020', date:'Mar 2020', subs:886,  churn:0.52, phase:'growth' },
+  { q:'Q4 FY2020', date:'Jun 2020', subs:1090, churn:0.46, phase:'growth' },
+  { q:'Q1 FY2021', date:'Sep 2020', subs:1330, churn:0.43, phase:'growth' },
+  { q:'Q2 FY2021', date:'Dec 2020', subs:1670, churn:0.40, phase:'growth' },
+  { q:'Q3 FY2021', date:'Mar 2021', subs:2080, churn:0.39, phase:'growth' },
+  { q:'Q4 FY2021', date:'Jun 2021', subs:2330, churn:0.52, phase:'growth' },
+  { q:'Q1 FY2022', date:'Sep 2021', subs:2490, churn:0.73, phase:'plateau' },
+  { q:'Q2 FY2022', date:'Dec 2021', subs:2780, churn:0.79, phase:'plateau' },
+  { q:'Q3 FY2022', date:'Mar 2022', subs:2960, churn:0.75, phase:'plateau' },
+  { q:'Q4 FY2022', date:'Jun 2022', subs:2960, churn:1.13, phase:'decline' },
+  { q:'Q1 FY2023', date:'Sep 2022', subs:2970, churn:1.17, phase:'decline' },
+  { q:'Q2 FY2023', date:'Dec 2022', subs:3030, churn:1.10, phase:'decline' },
+  { q:'Q3 FY2023', date:'Mar 2023', subs:3110, churn:1.20, phase:'decline' },
+  { q:'Q4 FY2023', date:'Jun 2023', subs:3080, churn:1.40, phase:'decline' },
+  { q:'Q1 FY2024', date:'Sep 2023', subs:2960, churn:1.60, phase:'decline' },
+  { q:'Q2 FY2024', date:'Dec 2023', subs:3000, churn:1.40, phase:'decline' },
+  { q:'Q3 FY2024', date:'Mar 2024', subs:3060, churn:1.30, phase:'stabilizing' },
+  { q:'Q4 FY2024', date:'Jun 2024', subs:2980, churn:1.20, phase:'stabilizing' },
+  { q:'Q1 FY2025', date:'Sep 2024', subs:2900, churn:1.25, phase:'stabilizing' },
+  { q:'Q2 FY2025', date:'Dec 2024', subs:2880, churn:1.20, phase:'stabilizing' },
+  { q:'Q3 FY2025', date:'Mar 2025', subs:2880, churn:1.20, phase:'stabilizing' },
+  { q:'Q4 FY2025', date:'Jun 2025', subs:2800, churn:1.20, phase:'stabilizing' },
+  { q:'Q1 FY2026', date:'Sep 2025', subs:2730, churn:1.20, phase:'stabilizing' },
+  { q:'Q2 FY2026', date:'Dec 2025', subs:2660, churn:1.20, phase:'stabilizing' },
+];
+
+const PHASE_COLOR = {
+  growth:      '#4de8c2',
+  plateau:     '#f5c842',
+  decline:     '#ff4d4d',
+  stabilizing: '#a78bfa',
+};
+
+// ── CANVAS SETUP ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const cx = W / 2, cy = H / 2;
+
+const N        = data.length;          // 26 quarters
+const maxSubs  = Math.max(...data.map(d => d.subs)); // 3110
+
+// Radial layout
+const R_MIN  = 58;   // inner radius (hole)
+const R_MAX  = 255;  // outer radius
+const GAP    = 2;    // gap between rings (px)
+const ringW  = (R_MAX - R_MIN - GAP * (N - 1)) / N;
+
+// Each ring is one quarter; arc sweeps full 360° but width encodes subs
+// Arc length (radial) = normalized subs * ringW
+// We draw each ring as a full-circle arc at its radius, colored by phase,
+// with alpha modulated by churn severity.
+
+// ── HIT AREAS ────────────────────────────────────────────────────────────────
+const hitRings = []; // {r0, r1, idx}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // subtle radial grid lines
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let r = R_MIN; r <= R_MAX + 10; r += 40) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  hitRings.length = 0;
+
+  data.forEach((d, i) => {
+    const r0 = R_MIN + i * (ringW + GAP);
+    const r1 = r0 + ringW;
+
+    // Radial fill length = normalized subs
+    const norm   = d.subs / maxSubs;          // 0..1
+    const color  = PHASE_COLOR[d.phase];
+
+    // Churn alpha overlay: higher churn = more opaque red glow
+    const churnNorm = Math.min((d.churn - 0.35) / 1.3, 1); // 0..1
+
+    // Full ring background (dim)
+    ctx.beginPath();
+    ctx.arc(cx, cy, (r0 + r1) / 2, 0, Math.PI * 2);
+    ctx.lineWidth = ringW;
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.stroke();
+
+    // Filled arc = subs proportion (starts at top, goes clockwise)
+    const startAngle = -Math.PI / 2;
+    const endAngle   = startAngle + norm * Math.PI * 2;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, (r0 + r1) / 2, startAngle, endAngle);
+    ctx.lineWidth = ringW;
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.85 + 0.15 * norm;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Churn glow overlay (red tint on top)
+    if (churnNorm > 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, (r0 + r1) / 2, startAngle, endAngle);
+      ctx.lineWidth = ringW;
+      ctx.strokeStyle = `rgba(255,60,60,${churnNorm * 0.35})`;
+      ctx.stroke();
+    }
+
+    // Endpoint dot
+    const dotAngle = endAngle;
+    const dotR     = (r0 + r1) / 2;
+    const dx = cx + dotR * Math.cos(dotAngle);
+    const dy = cy + dotR * Math.sin(dotAngle);
+    ctx.beginPath();
+    ctx.arc(dx, dy, ringW / 2 + 1, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    hitRings.push({ r0, r1, idx: i });
+  });
+
+  // Center hole fill
+  ctx.beginPath();
+  ctx.arc(cx, cy, R_MIN - 2, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fill();
+
+  // Year labels on right side
+  const years = ['FY20','FY21','FY22','FY23','FY24','FY25','FY26'];
+  const yearStarts = [0, 4, 8, 12, 16, 20, 24]; // index of Q1 for each FY
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.font = '700 9px Helvetica Neue, Helvetica, Arial, sans-serif';
+  ctx.textAlign = 'left';
+  yearStarts.forEach((si, yi) => {
+    const r0  = R_MIN + si * (ringW + GAP);
+    const r1  = r0 + ringW;
+    const mid = (r0 + r1) / 2;
+    ctx.fillText(years[yi], cx + mid + 4, cy + 3);
+  });
+  ctx.restore();
+}
+
+draw();
+
+// ── INTERACTION ───────────────────────────────────────────────────────────────
+const tip   = document.getElementById('tip');
+const cVal  = document.getElementById('cVal');
+const cLbl  = document.getElementById('cLbl');
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const dist = Math.sqrt((mx - cx) ** 2 + (my - cy) ** 2);
+
+  let hit = null;
+  for (const ring of hitRings) {
+    if (dist >= ring.r0 && dist <= ring.r1) {
+      hit = ring;
+      break;
+    }
+  }
+
+  if (hit) {
+    const d = data[hit.idx];
+    const retention = ((1 - d.churn / 100) ** 12 * 100).toFixed(1);
+    canvas.style.cursor = 'crosshair';
+
+    tip.innerHTML = `
+      <div class="t-quarter">${d.q} · ${d.date}</div>
+      <div class="t-row"><span class="t-key">Subscribers</span><span class="t-v">${(d.subs / 1000).toFixed(2)}M</span></div>
+      <div class="t-row"><span class="t-key">Monthly Churn</span><span class="t-v t-churn">${d.churn.toFixed(2)}%</span></div>
+      <div class="t-row"><span class="t-key">Annual Retention</span><span class="t-v t-ret">~${retention}%</span></div>
+      <div class="t-row"><span class="t-key">Phase</span><span class="t-v" style="color:${PHASE_COLOR[d.phase]};text-transform:capitalize">${d.phase}</span></div>
+    `;
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX + 16) + 'px';
+    tip.style.top  = (e.clientY - 10) + 'px';
+
+    cVal.textContent = (d.subs / 1000).toFixed(2) + 'M';
+    cLbl.textContent = d.q + ' · ' + d.date;
+  } else {
+    canvas.style.cursor = 'default';
+    tip.style.display = 'none';
+    cVal.textContent = '3.11M';
+    cLbl.textContent = 'Peak · Mar 2023';
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  tip.style.display = 'none';
+  cVal.textContent = '3.11M';
+  cLbl.textContent = 'Peak · Mar 2023';
+});
+</script>
+</body>
+</html>

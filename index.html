@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Peloton Subscriber Retention</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d0d;
+      color: #f0f0f0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px 60px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #e8e8e8;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.78rem;
+      color: #888;
+      margin-bottom: 28px;
+      letter-spacing: 0.05em;
+    }
+
+    .spiral-container {
+      position: relative;
+      width: 520px;
+      height: 520px;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0; left: 0;
+    }
+
+    .center-label {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .center-label .big-num {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .center-label .big-sub {
+      font-size: 0.72rem;
+      color: #aaa;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(20,20,20,0.95);
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      pointer-events: none;
+      display: none;
+      min-width: 170px;
+      z-index: 10;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+
+    .tooltip .tt-date { font-weight: 700; color: #fff; margin-bottom: 5px; font-size: 0.85rem; }
+    .tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 3px; }
+    .tooltip .tt-label { color: #888; }
+    .tooltip .tt-val { font-weight: 600; color: #f0f0f0; }
+    .tooltip .tt-churn { color: #ff6b6b; font-weight: 700; }
+    .tooltip .tt-retained { color: #4ecdc4; font-weight: 700; }
+
+    .legend {
+      display: flex;
+      gap: 24px;
+      margin-top: 22px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 28px;
+      margin-top: 28px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat-card {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 14px 20px;
+      text-align: center;
+      min-width: 130px;
+    }
+
+    .stat-card .val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .stat-card .lbl {
+      font-size: 0.68rem;
+      color: #666;
+      margin-top: 3px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .stat-card .delta {
+      font-size: 0.75rem;
+      margin-top: 4px;
+    }
+
+    .delta.neg { color: #ff6b6b; }
+    .delta.pos { color: #4ecdc4; }
+
+    .source-note {
+      margin-top: 26px;
+      font-size: 0.65rem;
+      color: #444;
+      letter-spacing: 0.04em;
+    }
+
+    .phase-label {
+      position: absolute;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Peloton — Subscriber Retention Spiral</h1>
+<p class="subtitle">Connected Fitness Paid Subscriptions · Quarterly · 2019–2025 · Source: Peloton 10-K / SEC Filings</p>
+
+<div class="spiral-container">
+  <canvas id="spiralCanvas" width="520" height="520"></canvas>
+  <div class="center-label">
+    <div class="big-num" id="centerNum">3.11M</div>
+    <div class="big-sub">PEAK SUBS · Q1 FY2023</div>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#4ecdc4"></div> Growth Phase</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f7dc6f"></div> Plateau Phase</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div> Decline Phase</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a29bfe"></div> Stabilizing</div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="val">3.11M</div>
+    <div class="lbl">Peak Subscribers</div>
+    <div class="delta neg">Mar 2023</div>
+  </div>
+  <div class="stat-card">
+    <div class="val">2.66M</div>
+    <div class="lbl">Dec 2025 Subs</div>
+    <div class="delta neg">▼ 14.5% from peak</div>
+  </div>
+  <div class="stat-card">
+    <div class="val">1.2%</div>
+    <div class="lbl">Monthly Churn</div>
+    <div class="delta pos">Q3 FY2026</div>
+  </div>
+  <div class="stat-card">
+    <div class="val">~85%</div>
+    <div class="lbl">Annual Retention</div>
+    <div class="delta pos">Implied (FY2024)</div>
+  </div>
+</div>
+
+<p class="source-note">Data sourced from Peloton 10-K filings (FY2020–FY2024) and SEC quarterly reports. Churn = Avg Net Monthly Paid CF Subscription Churn.</p>
+
+<script>
+  // ── DATA ──────────────────────────────────────────────────────────────────
+  // Quarterly connected fitness paid subscriptions (thousands)
+  // Source: Peloton 10-K filings & Backlinko / SEC data
+  const data = [
+    { q: 'Q1 FY2020', date: 'Sep 2019', subs: 562,   churn: 0.65, phase: 'growth' },
+    { q: 'Q2 FY2020', date: 'Dec 2019', subs: 712,   churn: 0.60, phase: 'growth' },
+    { q: 'Q3 FY2020', date: 'Mar 2020', subs: 886,   churn: 0.52, phase: 'growth' },
+    { q: 'Q4 FY2020', date: 'Jun 2020', subs: 1090,  churn: 0.46, phase: 'growth' },
+    { q: 'Q1 FY2021', date: 'Sep 2020', subs: 1330,  churn: 0.43, phase: 'growth' },
+    { q: 'Q2 FY2021', date: 'Dec 2020', subs: 1670,  churn: 0.40, phase: 'growth' },
+    { q: 'Q3 FY2021', date: 'Mar 2021', subs: 2080,  churn: 0.39, phase: 'growth' },
+    { q: 'Q4 FY2021', date: 'Jun 2021', subs: 2330,  churn: 0.52, phase: 'growth' },
+    { q: 'Q1 FY2022', date: 'Sep 2021', subs: 2490,  churn: 0.73, phase: 'plateau' },
+    { q: 'Q2 FY2022', date: 'Dec 2021', subs: 2780,  churn: 0.79, phase: 'plateau' },
+    { q: 'Q3 FY2022', date: 'Mar 2022', subs: 2960,  churn: 0.75, phase: 'plateau' },
+    { q: 'Q4 FY2022', date: 'Jun 2022', subs: 2960,  churn: 1.13, phase: 'decline' },
+    { q: 'Q1 FY2023', date: 'Sep 2022', subs: 2970,  churn: 1.17, phase: 'decline' },
+    { q: 'Q2 FY2023', date: 'Dec 2022', subs: 3030,  churn: 1.10, phase: 'decline' },
+    { q: 'Q3 FY2023', date: 'Mar 2023', subs: 3110,  churn: 1.20, phase: 'decline' },
+    { q: 'Q4 FY2023', date: 'Jun 2023', subs: 3080,  churn: 1.40, phase: 'decline' },
+    { q: 'Q1 FY2024', date: 'Sep 2023', subs: 2960,  churn: 1.60, phase: 'decline' },
+    { q: 'Q2 FY2024', date: 'Dec 2023', subs: 3000,  churn: 1.40, phase: 'decline' },
+    { q: 'Q3 FY2024', date: 'Mar 2024', subs: 3060,  churn: 1.30, phase: 'stabilizing' },
+    { q: 'Q4 FY2024', date: 'Jun 2024', subs: 2980,  churn: 1.20, phase: 'stabilizing' },
+    { q: 'Q1 FY2025', date: 'Sep 2024', subs: 2900,  churn: 1.25, phase: 'stabilizing' },
+    { q: 'Q2 FY2025', date: 'Dec 2024', subs: 2880,  churn: 1.20, phase: 'stabilizing' },
+    { q: 'Q3 FY2025', date: 'Mar 2025', subs: 2880,  churn: 1.20, phase: 'stabilizing' },
+    { q: 'Q4 FY2025', date: 'Jun 2025', subs: 2800,  churn: 1.20, phase: 'stabilizing' },
+    { q: 'Q1 FY2026', date: 'Sep 2025', subs: 2730,  churn: 1.20, phase: 'stabilizing' },
+    { q: 'Q2 FY2026', date: 'Dec 2025', subs: 2660,  churn: 1.20, phase: 'stabilizing' },
+  ];
+
+  const phaseColors = {
+    growth:      '#4ecdc4',
+    plateau:     '#f7dc6f',
+    decline:     '#ff6b6b',
+    stabilizing: '#a29bfe',
+  };
+
+  const canvas = document.getElementById('spiralCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+
+  const N = data.length;
+  const minR = 38, maxR = 228;
+  const startAngle = -Math.PI / 2;
+  const totalAngle = 2 * Math.PI * 2.6; // ~2.6 full turns
+
+  // Precompute arc positions
+  const arcs = data.map((d, i) => {
+    const t0 = i / N;
+    const t1 = (i + 1) / N;
+    const a0 = startAngle + t0 * totalAngle;
+    const a1 = startAngle + t1 * totalAngle;
+    const r  = minR + (d.subs / 3200) * (maxR - minR);
+    const mx = cx + r * Math.cos((a0 + a1) / 2);
+    const my = cy + r * Math.sin((a0 + a1) / 2);
+    return { ...d, a0, a1, r, mx, my, idx: i };
+  });
+
+  // ── DRAW ──────────────────────────────────────────────────────────────────
+  function draw(hoveredIdx = -1) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw subtle grid rings
+    for (let r = minR; r <= maxR; r += 38) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Draw arcs
+    arcs.forEach((arc, i) => {
+      const isHovered = i === hoveredIdx;
+      const color = phaseColors[arc.phase];
+      const thickness = minR * 0.38 + (arc.r / maxR) * 10;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, arc.r, arc.a0, arc.a1);
+      ctx.strokeStyle = isHovered ? '#fff' : color;
+      ctx.lineWidth   = isHovered ? thickness + 4 : thickness;
+      ctx.lineCap     = 'round';
+      ctx.globalAlpha = isHovered ? 1 : 0.82;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // Churn glow overlay (higher churn = more red glow)
+      if (arc.churn > 1.0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, arc.r, arc.a0, arc.a1);
+        ctx.strokeStyle = `rgba(255,80,80,${Math.min((arc.churn - 1.0) * 0.35, 0.5)})`;
+        ctx.lineWidth = thickness * 0.5;
+        ctx.stroke();
+      }
+
+      // Tick mark at midpoint
+      const tmx = cx + arc.r * Math.cos((arc.a0 + arc.a1) / 2);
+      const tmy = cy + arc.r * Math.sin((arc.a0 + arc.a1) / 2);
+      ctx.beginPath();
+      ctx.arc(tmx, tmy, isHovered ? 5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = isHovered ? '#fff' : color;
+      ctx.fill();
+    });
+
+    // Year labels
+    const yearMarkers = [
+      { label: 'FY2020', idx: 0 },
+      { label: 'FY2021', idx: 4 },
+      { label: 'FY2022', idx: 8 },
+      { label: 'FY2023', idx: 12 },
+      { label: 'FY2024', idx: 16 },
+      { label: 'FY2025', idx: 20 },
+    ];
+    yearMarkers.forEach(({ label, idx }) => {
+      if (idx >= arcs.length) return;
+      const arc = arcs[idx];
+      const angle = (arc.a0 + arc.a1) / 2;
+      const lr = arc.r + 18;
+      const lx = cx + lr * Math.cos(angle);
+      const ly = cy + lr * Math.sin(angle);
+      ctx.font = 'bold 9px Segoe UI';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, lx, ly);
+    });
+
+    // Peak marker
+    const peakArc = arcs[14]; // Mar 2023
+    ctx.beginPath();
+    ctx.arc(cx, cy, peakArc.r, peakArc.a0, peakArc.a1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Peak label
+    const pa = (peakArc.a0 + peakArc.a1) / 2;
+    const plr = peakArc.r - 22;
+    ctx.font = 'bold 8px Segoe UI';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PEAK', cx + plr * Math.cos(pa), cy + plr * Math.sin(pa));
+  }
+
+  draw();
+
+  // ── INTERACTION ───────────────────────────────────────────────────────────
+  const tooltip = document.getElementById('tooltip');
+  const centerNum = document.getElementById('centerNum');
+
+  function getHovered(mx, my) {
+    let best = -1, bestDist = Infinity;
+    arcs.forEach((arc, i) => {
+      const dx = mx - arc.mx, dy = my - arc.my;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 22 && d < bestDist) { bestDist = d; best = i; }
+    });
+    // Also check by angle + radius proximity
+    if (best === -1) {
+      const dx = mx - cx, dy = my - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      let angle = Math.atan2(dy, dx);
+      arcs.forEach((arc, i) => {
+        const midA = (arc.a0 + arc.a1) / 2;
+        const rDiff = Math.abs(r - arc.r);
+        if (rDiff < 14) {
+          // Normalize angles
+          let a = angle;
+          let m = midA % (2 * Math.PI);
+          let diff = Math.abs(a - m);
+          if (diff > Math.PI) diff = 2 * Math.PI - diff;
+          if (diff < 0.18 && rDiff < bestDist) { bestDist = rDiff; best = i; }
+        }
+      });
+    }
+    return best;
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const hi = getHovered(mx, my);
+
+    draw(hi);
+
+    if (hi >= 0) {
+      const d = arcs[hi];
+      const retained = (100 - d.churn * 3).toFixed(1);
+      const annualRetention = (Math.pow(1 - d.churn / 100, 12) * 100).toFixed(1);
+
+      tooltip.style.display = 'block';
+      let tx = e.clientX - rect.left + 14;
+      let ty = e.clientY - rect.top - 10;
+      if (tx + 180 > W) tx = e.clientX - rect.left - 190;
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top  = ty + 'px';
+
+      tooltip.innerHTML = `
+        <div class="tt-date">${d.q} · ${d.date}</div>
+        <div class="tt-row"><span class="tt-label">Paid Subs</span><span class="tt-val">${(d.subs / 1000).toFixed(2)}M</span></div>
+        <div class="tt-row"><span class="tt-label">Monthly Churn</span><span class="tt-churn">${d.churn.toFixed(2)}%</span></div>
+        <div class="tt-row"><span class="tt-label">Annual Retention</span><span class="tt-retained">~${annualRetention}%</span></div>
+        <div class="tt-row"><span class="tt-label">Phase</span><span class="tt-val" style="color:${phaseColors[d.phase]};text-transform:capitalize">${d.phase}</span></div>
+      `;
+      centerNum.textContent = (d.subs / 1000).toFixed(2) + 'M';
+    } else {
+      tooltip.style.display = 'none';
+      centerNum.textContent = '3.11M';
+    }
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    draw(-1);
+    tooltip.style.display = 'none';
+    centerNum.textContent = '3.11M';
+  });
+</script>
+</body>
+</html>
